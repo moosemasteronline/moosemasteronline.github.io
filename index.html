@@ -24,6 +24,7 @@ html,body{height:100%;overflow:hidden;font-family:Arial,Helvetica,sans-serif;
           width:90%;max-width:440px;text-align:center;box-shadow:0 0 20px #FFD700}
 #lobbyBox h2{margin-bottom:14px;color:#FFD700;text-shadow:2px 2px 4px #000}
 #nameIn{width:68%;padding:8px;border-radius:8px;border:none;font-size:16px;margin-right:8px}
+#deckSize{padding:6px;border-radius:6px;border:none;font-size:16px;width:60px;margin-left:6px}
 #lobbyList{list-style:none;margin:14px 0;height:120px;overflow-y:auto;background:#2F4F4F;
            border:2px solid #FFD700;border-radius:8px}
 #lobbyList li{padding:6px 10px;border-bottom:1px solid #FFD700;font-size:14px}
@@ -125,6 +126,10 @@ h3,h4{margin-bottom:6px;color:#FFD700;text-shadow:1px 1px 3px #000;font-size:18p
     <input id="nameIn" placeholder="Player name">
     <button class="btn" id="addBtn">Add</button>
     <ul id="lobbyList"></ul>
+    <div style="margin:10px 0">
+      <label for="deckSize">Deck size:</label>
+      <input id="deckSize" type="number" min="20" max="80" value="36">
+    </div>
     <button id="startBtn" class="btn" disabled>Start game</button>
     <button class="btn" id="cancelBtn">Cancel</button>
   </div>
@@ -207,9 +212,9 @@ class Game{
   this.players=[];this.pen={};this.mode='fewest';
   this.deck=[];this.rules=[];this.activeRules=[];
   this.drawnMasters=[];this.masterOwners={};
-  this.curCard=null;this.idx=0;this.left=36;this.used=0;
+  this.curCard=null;this.idx=0;this.deckSize=36;this.left=36;this.used=0;
   this.hist=[];this.lobby=[];
-  this.initDeck();this.initRules();
+  this.initDeck(this.deckSize);this.initRules();
   this.setupEventListeners();
  }
 
@@ -231,23 +236,37 @@ class Game{
   $('nameIn').onkeypress = (e) => {
     if(e.key === 'Enter') this.lobbyAdd();
   };
- }
 
- /* ─── LOBBY ─── */
- lobbyAdd(){
+  $('deckSize').oninput = () => this.checkStartDisabled();
+}
+
+validDeckSize(){
+  const v=parseInt($('deckSize').value,10);
+  return !isNaN(v)&&v>=20&&v<=80;
+}
+
+checkStartDisabled(){
+  $('startBtn').disabled=this.lobby.length<2 || !this.validDeckSize();
+}
+
+/* ─── LOBBY ─── */
+lobbyAdd(){
   const n=$('nameIn').value.trim();
   if(!n)return;
   if(this.lobby.includes(n))return this.notice('Name exists');
   this.lobby.push(n);$('nameIn').value='';
   $('lobbyList').innerHTML=this.lobby.map(v=>`<li>${v}</li>`).join('');
-  $('startBtn').disabled=this.lobby.length<2;
- }
+  this.checkStartDisabled();
+}
  
- startGame(){
-  if(this.lobby.length<2)return;
-  this.players=[...this.lobby];this.players.forEach(p=>this.pen[p]=0);
-  this.update();
-  this.notice('Game started!');
+startGame(){
+ if(this.lobby.length<2||!this.validDeckSize())return;
+ this.deckSize=parseInt($('deckSize').value,10);
+ this.initDeck(this.deckSize);
+ this.hist=[];
+ this.players=[...this.lobby];this.players.forEach(p=>this.pen[p]=0);
+ this.update();
+ this.notice('Game started!');
   $('closeNoticeBtn').onclick = () => {
     this.closeNotice();
     $('lobby').remove();
@@ -260,7 +279,8 @@ class Game{
   $('lobby').classList.add('hide');
  }
 
- initDeck(){this.deck=[
+initDeck(size=36){
+ const base=[
   {t:'master',n:'MOOSE MASTER',c:'You are the Moose Master – antlers protect you.'},
   {t:'master',n:'COPY CAT MASTER',c:'Pick an action & a player; they must copy.'},
   {t:'master',n:'ECHO MASTER',c:'Say a word & pick player; they repeat.'},
@@ -294,8 +314,13 @@ class Game{
   {t:'action-type',n:'PEACE SIGN!',c:'Last to ✌️ = penalty.'},
   {t:'action-type',n:'TOUCH FLOOR!',c:'Last to floor-touch = penalty.'},
   {t:'action-type',n:'💣 BOMB!',c:'You drew a bomb – take a penalty!'}];
+  let deck=[...base];
+  while(deck.length<size) deck=deck.concat(base);
+  this.deck=deck.slice(0,size);
   this.shuffle(this.deck);
- }
+  this.left=size;this.idx=0;this.used=0;
+  this.curCard=null;this.drawnMasters=[];this.masterOwners={};
+}
  initRules(){this.rules=[
   "Can't say \"No\".","Can't name anyone.","Can't show teeth.",
   "Can't point with finger.","Can't say numbers.","Can't cross arms or legs.",
