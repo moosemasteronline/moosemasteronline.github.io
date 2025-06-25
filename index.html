@@ -99,6 +99,8 @@ h3,h4{margin-bottom:6px;color:#FFD700;text-shadow:1px 1px 3px #000;font-size:18p
           padding:6px;top:100%;left:0;z-index:2500}
 .dropdown div{padding:4px 8px;border-radius:6px;font-size:13px;cursor:pointer}
 .dropdown div:hover{background:#9932CC}
+.dropdown .remove{margin-top:4px;text-align:center;font-weight:700;background:#8B0000;color:#FFD700}
+.dropdown .remove:hover{background:#B22222}
 
 /* PENALTY LOADING BAR */
 #penaltyLoadingBar {
@@ -203,16 +205,19 @@ function toggleDropdown(tag,card){
  const dd=document.createElement('div');dd.className='dropdown';
  window.game.players.forEach(p=>{const d=document.createElement('div');d.textContent=p;
   d.onclick=()=>{window.game.setMasterOwner(card,p);dd.remove();};dd.appendChild(d);});
+ const rm=document.createElement('div');rm.textContent='Remove';rm.className='remove';
+ rm.onclick=()=>{window.game.removeMasterCard(card);dd.remove();};dd.appendChild(rm);
  tag.appendChild(dd);
  setTimeout(()=>window.addEventListener('click',()=>dd.remove(),{once:true}),0);
 }
 
 class Game{
- constructor(){
-  this.players=[];this.pen={};this.mode='fewest';
-  this.deck=[];this.rules=[];this.activeRules=[];
-  this.drawnMasters=[];this.masterOwners={};
-  this.curCard=null;this.idx=0;this.deckSize=36;this.left=36;this.used=0;
+  constructor(){
+   this.players=[];this.pen={};this.mode='fewest';
+   this.deck=[];this.rules=[];this.activeRules=[];
+   this.drawnMasters=[];this.masterOwners={};
+   this.holdableMasters=['THUMB MASTER','POINT LEFT!','POINT RIGHT!','POINT UP!','POINT DOWN!','SLAP TABLE!','THUMBS UP!','TOUCH NOSE!','STAND UP!','CLAP!','PEACE SIGN!','TOUCH FLOOR!'];
+   this.curCard=null;this.idx=0;this.deckSize=36;this.left=36;this.used=0;
   this.hist=[];this.lobby=[];
   this.initDeck(this.deckSize);this.initRules();
   this.setupEventListeners();
@@ -340,9 +345,9 @@ initDeck(size=36){
   if(this.left===0)return;
   this.pushHist();
   this.curCard=this.deck[this.idx++];this.left--;this.used++;
-  if(this.curCard.t==='master'&&!this.drawnMasters.includes(this.curCard.n)){
-   this.drawnMasters.push(this.curCard.n);this.masterOwners[this.curCard.n]={master:'',target:''};
-  }
+   if((this.curCard.t==='master' || this.holdableMasters.includes(this.curCard.n)) && !this.drawnMasters.includes(this.curCard.n)){
+    this.drawnMasters.push(this.curCard.n);this.masterOwners[this.curCard.n]={master:'',target:''};
+   }
   if(this.curCard.n==='💣 BOMB!')this.notice('💣  BOMB!  Take a penalty.');
   this.update();
  }
@@ -424,12 +429,19 @@ initDeck(size=36){
  toggleMode(){this.mode=this.mode==='fewest'?'elimination':'fewest';
   this.players.forEach(p=>this.checkElim(p));this.update();}
 
- setMasterOwner(card, player, role='master') {
-   if(!this.masterOwners[card]) this.masterOwners[card] = {master:'',target:''};
-   if(role === 'master') this.masterOwners[card].master = player;
-   if(role === 'target') this.masterOwners[card].target = player;
-   this.update();
- }
+  setMasterOwner(card, player, role='master') {
+    if(!this.masterOwners[card]) this.masterOwners[card] = {master:'',target:''};
+    if(role === 'master') this.masterOwners[card].master = player;
+    if(role === 'target') this.masterOwners[card].target = player;
+    this.update();
+  }
+
+  removeMasterCard(card){
+    const i=this.drawnMasters.indexOf(card);
+    if(i>-1){this.drawnMasters.splice(i,1);delete this.masterOwners[card];}
+    if(this.curCard&&this.curCard.n===card)this.curCard=null;
+    this.update();
+  }
 
  update(){
   $('rule1').textContent=this.activeRules[0];
@@ -439,6 +451,7 @@ initDeck(size=36){
   $('cardTitle').textContent=this.curCard?this.curCard.n:'Moose Master';
   
   const masterCardsWithTarget = ['ECHO MASTER','COPY CAT MASTER','QUESTION MASTER','RHYME MASTER','SIMON MASTER'];
+  const holdableMasters = this.holdableMasters;
   if(this.curCard && this.curCard.t === 'master' && masterCardsWithTarget.includes(this.curCard.n)) {
     const masterOwner = this.masterOwners[this.curCard.n] ? this.masterOwners[this.curCard.n].master : '';
     const masterTarget = this.masterOwners[this.curCard.n] ? this.masterOwners[this.curCard.n].target : '';
@@ -468,6 +481,14 @@ initDeck(size=36){
     $('masterTargetSelect').onchange = (e) => {
       this.setMasterOwner(this.curCard.n, e.target.value, 'target');
     };
+  } else if(this.curCard && holdableMasters.includes(this.curCard.n)) {
+    const masterOwner = this.masterOwners[this.curCard.n] ? this.masterOwners[this.curCard.n].master : '';
+    let select = `<select id="masterOwnerSelect" style="margin-left:8px;font-size:15px;">`+
+      `<option value="">Select player</option>`+
+      `${this.players.map(p=>`<option value="${p}"${masterOwner===p?' selected':''}>${p}</option>`).join('')}`+
+      `</select>`;
+    $('cardContent').innerHTML = `${this.curCard.c}<br>${select}`;
+    $('masterOwnerSelect').onchange = e => this.setMasterOwner(this.curCard.n, e.target.value, 'master');
   } else {
     $('cardContent').textContent=this.curCard?this.curCard.c:'Press "Draw card" to begin!';
   }
