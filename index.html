@@ -48,7 +48,7 @@ section{overflow:hidden;border:3px solid #FFD700;border-radius:14px;padding:10px
 h3,h4{margin-bottom:6px;color:#FFD700;text-shadow:1px 1px 3px #000;font-size:18px}
 
 /* RULES BAR */
-#rulesBar{grid-area:rules;text-align:center;display:flex;flex-direction:column;justify-content:center}
+#rulesBar{grid-area:rules;text-align:center;display:flex;flex-direction:column;justify-content:center;position:relative}
 #rulesWrap{display:flex;justify-content:center;gap:12px;margin:4px 0}
 .ruleCard{flex:1;background:#8B0000;border:2px solid #FFD700;border-radius:8px;padding:6px;
           font-size:14px;font-weight:700;min-width:150px}
@@ -80,6 +80,20 @@ h3,h4{margin-bottom:6px;color:#FFD700;text-shadow:1px 1px 3px #000;font-size:18p
 .masterTag{background:#6A0DAD;border:2px solid #FFD700;border-radius:6px;padding:4px 6px;
            font-size:13px;margin:4px 4px 0 0;cursor:pointer;display:inline-block}
 .masterTag:hover{background:#7E2BE2}
+.masterTag.removing {
+  animation: blowUpAnimation 0.3s ease-out forwards;
+}
+
+@keyframes blowUpAnimation {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
 
 /* PENALTIES */
 #penWrap{grid-area:pen;display:flex;flex-direction:column}
@@ -117,6 +131,37 @@ h3,h4{margin-bottom:6px;color:#FFD700;text-shadow:1px 1px 3px #000;font-size:18p
   from { width: 100%; }
   to { width: 0%; }
 }
+
+#courtesyText {
+  /* --- Positioning Logic --- */
+  position: absolute; /* Lifts the element out of the normal layout flow */
+  bottom: 10px;       /* Positions it 10px from the bottom of the container */
+  left: 0;            /* Stretches it from the left edge... */
+  right: 0;           /* ...to the right edge of the container */
+
+  /* --- Styling (font, size, etc.) --- */
+  font-family: "Brush Script MT", cursive;
+  font-size: 26px;
+  font-weight: bold;
+  text-align: center; /* This now centers it within the full width */
+  
+  /* --- Animation (remains the same) --- */
+  background: linear-gradient(90deg, #fff, #FFD700, #fff);
+  background-size: 200% auto;
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: wave 3s linear infinite;
+}
+
+@keyframes wave {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
 </style>
 </head>
 <body>
@@ -149,6 +194,7 @@ h3,h4{margin-bottom:6px;color:#FFD700;text-shadow:1px 1px 3px #000;font-size:18p
       <button class="btn" id="changeRule1">Change rule 1</button>
       <button class="btn" id="changeRule2">Change rule 2</button>
     </div>
+    <div id="courtesyText">Courtesy of Michael</div>
   </section>
 
   <section id="currentWrap">
@@ -192,7 +238,7 @@ h3,h4{margin-bottom:6px;color:#FFD700;text-shadow:1px 1px 3px #000;font-size:18p
 </div>
 
 <!-- NOTICES -->
-<div id="notice"><div class="noticeBox"><div id="noticeTxt"></div><br><button class="btn" id="closeNoticeBtn">OK</button></div></div>
+<div id="notice"><div class="noticeBox"><div id="noticeTxt"></div><br><button class="btn" id="closeNoticeBtn">Cancel</button></div></div>
 
 <!-- PENALTY POPUP -->
 <div id="penaltyPop"><div class="noticeBox" id="penaltyContent"></div></div>
@@ -216,7 +262,7 @@ class Game{
    this.players=[];this.pen={};this.mode='fewest';
    this.deck=[];this.rules=[];this.activeRules=[];
    this.drawnMasters=[];this.masterOwners={};
-   this.holdableMasters=['THUMB MASTER','POINT LEFT!','POINT RIGHT!','POINT UP!','POINT DOWN!','SLAP TABLE!','THUMBS UP!','TOUCH NOSE!','STAND UP!','CLAP!','PEACE SIGN!','TOUCH FLOOR!'];
+   this.holdableMasters=['MOOSE MASTER','THUMB MASTER','POINT LEFT!','POINT RIGHT!','POINT UP!','POINT DOWN!','SLAP TABLE!','THUMBS UP!','TOUCH NOSE!','STAND UP!','CLAP!','PEACE SIGN!','TOUCH FLOOR!'];
    this.curCard=null;this.idx=0;this.deckSize=36;this.left=36;this.used=0;
   this.hist=[];this.lobby=[];
   this.initDeck(this.deckSize);this.initRules();
@@ -271,7 +317,7 @@ startGame(){
  this.hist=[];
  this.players=[...this.lobby];this.players.forEach(p=>this.pen[p]=0);
  this.update();
- this.notice('Game started!');
+ this.notice('Game started!','OK');
   $('closeNoticeBtn').onclick = () => {
     this.closeNotice();
     $('lobby').remove();
@@ -286,14 +332,13 @@ startGame(){
 
 initDeck(size=36){
  const base=[
-  {t:'master',n:'MOOSE MASTER',c:'You are the Moose Master – antlers protect you.'},
+  {t:'master',n:'MOOSE MASTER',c:'Antlers on head; last to copy = penalty.'},
   {t:'master',n:'COPY CAT MASTER',c:'Pick an action & a player; they must copy.'},
   {t:'master',n:'ECHO MASTER',c:'Say a word & pick player; they repeat.'},
   {t:'master',n:'QUESTION MASTER',c:'Direct answers to you = penalty.'},
   {t:'master',n:'THUMB MASTER',c:'Thumb on table; last to copy = penalty.'},
-  {t:'master',n:'RHYME MASTER',c:'Say word; player rhymes or penalty.'},
   {t:'master',n:'SIMON MASTER',c:'Only "Simon says" commands count.'},
-  {t:'master',n:'STORY MASTER',c:'Start story; break flow = penalty.'},
+  {t:'master',n:'CHARADES QUICK',c:'Un-guessed in 30 s = penalty.'},
   {t:'activity',n:'CATEGORIES',c:'Pick category – fail = penalty.'},
   {t:'activity',n:'RHYME TIME',c:'Rhyming chain – mess = penalty.'},
   {t:'activity',n:'NAME GAME',c:'Name chain – 15 s or penalty.'},
@@ -305,7 +350,6 @@ initDeck(size=36){
   {t:'activity',n:'TRUTH OR DARE',c:'Pick a player - Refuse/bad dare = penalty.'},
   {t:'activity',n:'WOULD YOU RATHER',c:'Pick a player - No choice in 10 s = penalty.'},
   {t:'activity',n:'FINISH THE SONG',c:'Pick a player - Wrong lyric = penalty.'},
-  {t:'activity',n:'CHARADES QUICK',c:'Un-guessed in 30 s = penalty.'},
   {t:'activity',n:'TWO TRUTHS ONE LIE',c:'Majority beats you = penalty.'},
   {t:'action-type',n:'POINT LEFT!',c:'Last to point left = penalty.'},
   {t:'action-type',n:'POINT RIGHT!',c:'Last to point right = penalty.'},
@@ -450,7 +494,7 @@ initDeck(size=36){
   $('cardType').textContent=this.curCard?this.curCard.t.toUpperCase():'READY';
   $('cardTitle').textContent=this.curCard?this.curCard.n:'Moose Master';
   
-  const masterCardsWithTarget = ['ECHO MASTER','COPY CAT MASTER','QUESTION MASTER','RHYME MASTER','SIMON MASTER'];
+  const masterCardsWithTarget = ['ECHO MASTER','COPY CAT MASTER','QUESTION MASTER','SIMON MASTER','CHARADES QUICK'];
   const holdableMasters = this.holdableMasters;
   if(this.curCard && this.curCard.t === 'master' && masterCardsWithTarget.includes(this.curCard.n)) {
     const masterOwner = this.masterOwners[this.curCard.n] ? this.masterOwners[this.curCard.n].master : '';
@@ -470,6 +514,8 @@ initDeck(size=36){
       cardText = 'pick an action & a player; they must copy.';
     } else if(this.curCard.n === 'ECHO MASTER') {
       cardText = 'say a word & pick player; they repeat.';
+    } else if (this.curCard.n === 'CHARADES QUICK') {
+      cardText = 'picks a Guesser. If not guessed in 30s, BOTH take a penalty.'
     }
     
     let formula = `${leftSelect}${cardText} → ${rightSelect}`;
@@ -526,13 +572,28 @@ initDeck(size=36){
       text += `: ${owner||'Unassigned'}`;
     }
     tag.textContent = text;
-    tag.onclick=e=>toggleDropdown(tag,m);
+    tag.onclick = (e) => {
+      e.stopPropagation(); // Prevents other click events from firing
+      tag.classList.add('removing'); // Add class to trigger the CSS animation
+      
+      // After the animation finishes (300ms), remove the card from the game
+      setTimeout(() => {
+        this.removeMasterCard(m);
+      }, 300); 
+    };
     mt.appendChild(tag);
   });
  }
 
- notice(m){$('noticeTxt').textContent=m;$('notice').style.display='flex'}
- closeNotice(){$('notice').style.display='none'}
+ notice(m, btnText = 'Cancel') {
+   $('noticeTxt').innerHTML = m; // Use innerHTML to allow for formatted messages if needed
+   $('closeNoticeBtn').textContent = btnText; // Set the button text dynamically
+   $('notice').style.display = 'flex';
+ }
+ closeNotice(){
+   $('notice').style.display='none';
+   $('closeNoticeBtn').textContent = 'Cancel'; // This resets the button text
+ }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
