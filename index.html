@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Moose Master - Digital Deck</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+/* ───── GLOBAL ───── */
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;font-family:Arial,Helvetica,sans-serif;
+          background:linear-gradient(135deg,#8B4513,#D2691E);color:#fff}
+
+/* buttons */
+.btn{cursor:pointer;font-weight:700;background:#8B008B;border:2px solid #FFD700;
+     color:#fff;border-radius:8px;padding:7px 14px;transition:.25s}
+.btn:hover{background:#9932CC;transform:scale(1.05)}
+.btn:disabled{background:#666;cursor:not-allowed;transform:none}
+.hide{display:none}
+
+/* ───── LOBBY ───── */
+.modal{position:fixed;inset:0;display:flex;justify-content:center;align-items:center;
+       background:rgba(0,0,0,.85);z-index:2000}
+#lobbyBox{background:#4B0082;border:3px solid #FFD700;padding:28px;border-radius:15px;
+          width:90%;max-width:440px;text-align:center;box-shadow:0 0 20px #FFD700}
+#lobbyBox h2{margin-bottom:14px;color:#FFD700;text-shadow:2px 2px 4px #000}
+#nameIn{width:68%;padding:8px;border-radius:8px;border:none;font-size:16px;margin-right:8px}
+#lobbyList{list-style:none;margin:14px 0;height:120px;overflow-y:auto;background:#2F4F4F;
+           border:2px solid #FFD700;border-radius:8px}
+#lobbyList li{padding:6px 10px;border-bottom:1px solid #FFD700;font-size:14px}
+#lobbyList li:last-child{border-bottom:none}
+
+/* ───── MAIN GRID (100 vh) ───── */
+#gameArea{display:grid;height:100vh;grid-template:
+ "rules rules"   0.28fr
+ "current deck"  0.42fr
+ "pen    deck"   0.30fr
+ / 2fr 1fr;gap:12px;padding:12px;overflow:hidden}
+@media(max-width:900px){
+ #gameArea{grid-template:
+ "rules" 0.28fr
+ "current" 0.38fr
+ "deck" 0.14fr
+ "pen" 0.20fr
+ /1fr}}
+section{overflow:hidden;border:3px solid #FFD700;border-radius:14px;padding:10px;
+        background:rgba(139,69,19,.9)}
+h3,h4{margin-bottom:6px;color:#FFD700;text-shadow:1px 1px 3px #000;font-size:18px}
+
+/* RULES BAR */
+#rulesBar{grid-area:rules;text-align:center;display:flex;flex-direction:column;justify-content:center}
+#rulesWrap{display:flex;justify-content:center;gap:12px;margin:4px 0}
+.ruleCard{flex:1;background:#8B0000;border:2px solid #FFD700;border-radius:8px;padding:6px;
+          font-size:14px;font-weight:700;min-width:150px}
+
+/* CURRENT CARD */
+#currentWrap{grid-area:current;text-align:center;display:flex;flex-direction:column;justify-content:center}
+#cardBox{flex:1;position:relative;background:#2F4F4F;border:4px solid #FFD700;border-radius:18px;
+         display:flex;flex-direction:column;justify-content:center;align-items:center;margin-bottom:6px}
+#cardBox.master{background:linear-gradient(135deg,#8B008B,#9932CC);animation:glow 2s infinite alternate}
+#cardBox.activity{background:linear-gradient(135deg,#006400,#228B22)}
+#cardBox.action-type{background:linear-gradient(135deg,#B22222,#DC143C);animation:pulse .6s ease-in-out}
+@keyframes glow{from{box-shadow:0 0 14px #FFD70040}to{box-shadow:0 0 28px #FFD700}}
+@keyframes pulse{50%{transform:scale(1.05)}}
+#cardType{position:absolute;top:8px;right:12px;font-size:11px;padding:3px 7px;background:#000A;
+          border-radius:5px;font-weight:700;text-transform:uppercase}
+#cardTitle{font-size:22px;color:#FFD700;font-weight:700;text-shadow:2px 2px 4px #000;margin-bottom:6px}
+#cardContent{font-size:16px;line-height:1.3;padding:0 8px}
+#currentBtns{display:flex;gap:8px;justify-content:center}
+
+/* DECK & MASTER */
+#deckWrap{grid-area:deck;display:flex;flex-direction:column}
+#deckCard{background:linear-gradient(45deg,#8B4513,#D2691E);border:3px solid #FFD700;border-radius:14px;
+          padding:22px 10px;text-align:center;font-weight:700;margin-bottom:6px}
+#deckCard:hover{transform:scale(1.05);box-shadow:0 0 16px #FFD700}
+.deck-empty{background:#666!important;cursor:not-allowed!important;transform:none!important;box-shadow:none!important}
+#deckInfo{font-size:14px}
+#masterPanel{margin-top:6px;background:#4B0082;border:3px solid #FFD700;border-radius:14px;
+             padding:8px;flex:1;overflow-y:auto}
+.masterTag{background:#6A0DAD;border:2px solid #FFD700;border-radius:6px;padding:4px 6px;
+           font-size:13px;margin:4px 4px 0 0;cursor:pointer;display:inline-block}
+.masterTag:hover{background:#7E2BE2}
+
+/* PENALTIES */
+#penWrap{grid-area:pen;display:flex;flex-direction:column}
+#playersBox{flex:1;overflow-y:auto;display:grid;gap:6px;grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+.playerCard{background:#2F4F4F;border:2px solid #FFD700;border-radius:10px;padding:6px;text-align:center;font-size:14px}
+.playerCard.eliminated{background:#8B0000;opacity:.7;border-color:#FF6B6B}
+.penCount{font-size:18px;color:#FFD700;font-weight:700}
+.penBtns{display:flex;gap:4px;justify-content:center;margin-top:4px}
+.penBtns .btn{padding:3px 6px;font-size:12px}
+
+/* NOTICES & DROPDOWNS */
+#notice,#penaltyPop{position:fixed;inset:0;display:none;justify-content:center;align-items:center;
+                    background:rgba(0,0,0,.85);z-index:3000}
+.noticeBox{background:#2F4F4F;border:3px solid #FFD700;border-radius:12px;padding:20px 24px;
+           max-width:90vw;text-align:center}
+.dropdown{position:absolute;background:#2F4F4F;border:2px solid #FFD700;border-radius:8px;
+          padding:6px;top:100%;left:0;z-index:2500}
+.dropdown div{padding:4px 8px;border-radius:6px;font-size:13px;cursor:pointer}
+.dropdown div:hover{background:#9932CC}
+
+/* PENALTY LOADING BAR */
+#penaltyLoadingBar {
+  width: 100%;
+  height: 6px;
+  background: #FFD700;
+  animation: deload 8s linear forwards;
+  transform-origin: right;
+  margin-top: 10px;
+  border-radius: 3px;
+}
+
+@keyframes deload {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOBBY -->
+<div id="lobby" class="modal">
+  <div id="lobbyBox">
+    <h2>Add players</h2>
+    <input id="nameIn" placeholder="Player name">
+    <button class="btn" id="addBtn">Add</button>
+    <ul id="lobbyList"></ul>
+    <button id="startBtn" class="btn" disabled>Start game</button>
+    <button class="btn" id="cancelBtn">Cancel</button>
+  </div>
+</div>
+
+<!-- MAIN GAME -->
+<div id="gameArea" class="hide">
+  <section id="rulesBar">
+    <h3>🫎 Active Moose Rules</h3>
+    <div id="rulesWrap">
+      <div class="ruleCard" id="rule1"></div>
+      <div class="ruleCard" id="rule2"></div>
+    </div>
+    <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+      <button class="btn" id="changeRule1">Change rule 1</button>
+      <button class="btn" id="changeRule2">Change rule 2</button>
+    </div>
+  </section>
+
+  <section id="currentWrap">
+    <div id="cardBox">
+      <div id="cardType">READY</div>
+      <div id="cardTitle">Moose Master</div>
+      <div id="cardContent">Press "Draw card" to begin!</div>
+    </div>
+    <div id="currentBtns">
+      <button id="drawBtn" class="btn">Draw card</button>
+      <button id="undoBtn" class="btn" disabled>Undo</button>
+      <button class="btn" id="modeBtn">Mode: Fewest</button>
+    </div>
+  </section>
+
+  <section id="deckWrap">
+    <div id="deckCard">
+      <div>🫎 MOOSE MASTER DECK</div>
+      <div id="cardsLeft">36 cards left</div>
+    </div>
+    <div id="deckInfo">
+      <div><b>Last:</b> <span id="lastCard">None</span></div>
+      <div><b>Used:</b> <span id="used">0</span></div>
+    </div>
+    <div id="masterPanel">
+      <h4 style="margin-bottom:4px">Master cards</h4>
+      <div id="masterTags"></div>
+    </div>
+  </section>
+
+  <section id="penWrap">
+    <h3 id="modeLabel">Mode: Fewest penalties (7 = out)</h3>
+    <div id="playersBox"></div>
+    <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:6px">
+      <button class="btn" id="addPlayerBtn">Add player</button>
+      <button class="btn" id="removePlayerBtn">Remove player</button>
+      <button class="btn" id="resetBtn">Reset penalties</button>
+    </div>
+  </section>
+
+</div>
+
+<!-- NOTICES -->
+<div id="notice"><div class="noticeBox"><div id="noticeTxt"></div><br><button class="btn" id="closeNoticeBtn">OK</button></div></div>
+
+<!-- PENALTY POPUP -->
+<div id="penaltyPop"><div class="noticeBox" id="penaltyContent"></div></div>
+
+<script>
+const $=id=>document.getElementById(id);
+
+function toggleDropdown(tag,card){
+ document.querySelectorAll('.dropdown').forEach(d=>d.remove());
+ const dd=document.createElement('div');dd.className='dropdown';
+ window.game.players.forEach(p=>{const d=document.createElement('div');d.textContent=p;
+  d.onclick=()=>{window.game.setMasterOwner(card,p);dd.remove();};dd.appendChild(d);});
+ tag.appendChild(dd);
+ setTimeout(()=>window.addEventListener('click',()=>dd.remove(),{once:true}),0);
+}
+
+class Game{
+ constructor(){
+  this.players=[];this.pen={};this.mode='fewest';
+  this.deck=[];this.rules=[];this.activeRules=[];
+  this.drawnMasters=[];this.masterOwners={};
+  this.curCard=null;this.idx=0;this.left=36;this.used=0;
+  this.hist=[];this.lobby=[];
+  this.initDeck();this.initRules();
+  this.setupEventListeners();
+ }
+
+ setupEventListeners(){
+  $('addBtn').onclick = () => this.lobbyAdd();
+  $('startBtn').onclick = () => this.startGame();
+  $('cancelBtn').onclick = () => this.cancelLobby();
+  $('drawBtn').onclick = () => this.drawCard();
+  $('deckCard').onclick = () => this.drawCard();
+  $('undoBtn').onclick = () => this.undo();
+  $('modeBtn').onclick = () => this.toggleMode();
+  $('changeRule1').onclick = () => this.changeRule(1);
+  $('changeRule2').onclick = () => this.changeRule(2);
+  $('addPlayerBtn').onclick = () => this.addPlayer();
+  $('removePlayerBtn').onclick = () => this.removePlayer();
+  $('resetBtn').onclick = () => this.resetPenalties();
+  $('closeNoticeBtn').onclick = () => this.closeNotice();
+  
+  $('nameIn').onkeypress = (e) => {
+    if(e.key === 'Enter') this.lobbyAdd();
+  };
+ }
+
+ /* ─── LOBBY ─── */
+ lobbyAdd(){
+  const n=$('nameIn').value.trim();
+  if(!n)return;
+  if(this.lobby.includes(n))return this.notice('Name exists');
+  this.lobby.push(n);$('nameIn').value='';
+  $('lobbyList').innerHTML=this.lobby.map(v=>`<li>${v}</li>`).join('');
+  $('startBtn').disabled=this.lobby.length<2;
+ }
+ 
+ startGame(){
+  if(this.lobby.length<2)return;
+  this.players=[...this.lobby];this.players.forEach(p=>this.pen[p]=0);
+  this.update();
+  this.notice('Game started!');
+  $('closeNoticeBtn').onclick = () => {
+    this.closeNotice();
+    $('lobby').remove();
+    $('gameArea').classList.remove('hide');
+    $('closeNoticeBtn').onclick = () => this.closeNotice();
+  };
+ }
+
+ cancelLobby(){
+  $('lobby').classList.add('hide');
+ }
+
+ initDeck(){this.deck=[
+  {t:'master',n:'MOOSE MASTER',c:'You are the Moose Master – antlers protect you.'},
+  {t:'master',n:'COPY CAT MASTER',c:'Pick an action & a player; they must copy.'},
+  {t:'master',n:'ECHO MASTER',c:'Say a word & pick player; they repeat.'},
+  {t:'master',n:'QUESTION MASTER',c:'Direct answers to you = penalty.'},
+  {t:'master',n:'THUMB MASTER',c:'Thumb on table; last to copy = penalty.'},
+  {t:'master',n:'RHYME MASTER',c:'Say word; player rhymes or penalty.'},
+  {t:'master',n:'SIMON MASTER',c:'Only "Simon says" commands count.'},
+  {t:'master',n:'STORY MASTER',c:'Start story; break flow = penalty.'},
+  {t:'activity',n:'CATEGORIES',c:'Pick category – fail = penalty.'},
+  {t:'activity',n:'RHYME TIME',c:'Rhyming chain – mess = penalty.'},
+  {t:'activity',n:'NAME GAME',c:'Name chain – 15 s or penalty.'},
+  {t:'activity',n:'STORY CHAIN',c:'Add word; error = penalty.'},
+  {t:'activity',n:'RPS TOURNAMENT',c:'Losers take penalties.'},
+  {t:'activity',n:'OPPOSITE DAY',c:'Go the opposite direction for 2 min – slip = penalty.'},
+  {t:'activity',n:'COUNTING CHALLENGE',c:'Reach 20; speaker gets penalty.'},
+  {t:'activity',n:'MEMORY MASTER',c:'Pick a player and list of items - Forget item = penalty.'},
+  {t:'activity',n:'TRUTH OR DARE',c:'Pick a player - Refuse/bad dare = penalty.'},
+  {t:'activity',n:'WOULD YOU RATHER',c:'Pick a player - No choice in 10 s = penalty.'},
+  {t:'activity',n:'FINISH THE SONG',c:'Pick a player - Wrong lyric = penalty.'},
+  {t:'activity',n:'CHARADES QUICK',c:'Un-guessed in 30 s = penalty.'},
+  {t:'activity',n:'TWO TRUTHS ONE LIE',c:'Majority beats you = penalty.'},
+  {t:'action-type',n:'POINT LEFT!',c:'Last to point left = penalty.'},
+  {t:'action-type',n:'POINT RIGHT!',c:'Last to point right = penalty.'},
+  {t:'action-type',n:'POINT UP!',c:'Last to point up = penalty.'},
+  {t:'action-type',n:'POINT DOWN!',c:'Last to point down = penalty.'},
+  {t:'action-type',n:'SLAP TABLE!',c:'Last to slap = penalty.'},
+  {t:'action-type',n:'THUMBS UP!',c:'Last to 👍 = penalty.'},
+  {t:'action-type',n:'TOUCH NOSE!',c:'Last to touch nose = penalty.'},
+  {t:'action-type',n:'STAND UP!',c:'Last to stand = penalty.'},
+  {t:'action-type',n:'CLAP!',c:'Last to clap = penalty.'},
+  {t:'action-type',n:'PEACE SIGN!',c:'Last to ✌️ = penalty.'},
+  {t:'action-type',n:'TOUCH FLOOR!',c:'Last to floor-touch = penalty.'},
+  {t:'action-type',n:'💣 BOMB!',c:'You drew a bomb – take a penalty!'}];
+  this.shuffle(this.deck);
+ }
+ initRules(){this.rules=[
+  "Can't say \"No\".","Can't name anyone.","Can't show teeth.",
+  "Can't point with finger.","Can't say numbers.","Can't cross arms or legs.",
+  "Can't use left hand.","Can't say \"Yes\".","Can't touch face.",
+  "Can't stand up.","Can't laugh.","Can't say words starting with 'S'.",
+  "Can't use \"I/me\".","Can't whisper.","Can't look at ceiling.",
+  "Can't mouth-click.","Can't touch another player.","Feet may not both touch floor.",
+  "Can't say 'the'.","Can't use your phone.","Can't drink with right hand.",
+  "Can't ask questions.","Can't repeat words.","Can't touch your hair."];
+  this.shuffle(this.rules);this.activeRules=[this.rules[0],this.rules[1]];
+ }
+ shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}}
+
+ pushHist(){this.hist.push(JSON.stringify({pen:this.pen,mode:this.mode,left:this.left,used:this.used,
+  idx:this.idx,cur:this.curCard,masters:this.masterOwners,drawn:this.drawnMasters}));if(this.hist.length>15)this.hist.shift();}
+ drawCard(){
+  if(this.left===0)return;
+  this.pushHist();
+  this.curCard=this.deck[this.idx++];this.left--;this.used++;
+  if(this.curCard.t==='master'&&!this.drawnMasters.includes(this.curCard.n)){
+   this.drawnMasters.push(this.curCard.n);this.masterOwners[this.curCard.n]={master:'',target:''};
+  }
+  if(this.curCard.n==='💣 BOMB!')this.notice('💣  BOMB!  Take a penalty.');
+  this.update();
+ }
+ undo(){
+  if(!this.hist.length)return;
+  const s=JSON.parse(this.hist.pop());
+  Object.assign(this,{pen:s.pen,mode:s.mode,left:s.left,used:s.used,idx:s.idx,
+                      curCard:s.cur,masterOwners:s.masters,drawnMasters:s.drawn});
+  this.update();
+ }
+
+ addPenaltyTo(p){
+  const kinds=['bummer','bonus','lucky'];
+  const k=kinds[Math.floor(Math.random()*3)];
+  this.showPenaltyPopup(k,p);
+ }
+ givePenalty(p){this.pen[p]++;this.checkElim(p);this.update();}
+ checkElim(p){if(this.mode==='elimination'&&this.pen[p]>=7)this.notice(`${p} eliminated!`);}
+ resetPenalties(){if(!confirm('Reset all penalties?'))return;this.players.forEach(p=>this.pen[p]=0);this.update();}
+ passLucky(from,to){this.givePenalty(to);this.closePenalty();}
+
+ showPenaltyPopup(k,target){
+  const pc=$('penaltyContent');
+  let html=`<h3 style="margin-bottom:6px">Penalty: ${k.toUpperCase()}</h3>`;
+  if(k==='bummer')html+=`<p>${target} takes a penalty.</p>`;
+  if(k==='bonus')html+=`<p>${target} takes a penalty but may change one Moose rule.</p>`;
+  if(k==='lucky'){
+    html+=`<p>${target} is lucky! Pick who gets the penalty:</p><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">`;
+    this.players.forEach(p=>html+=`<button class="btn" style="padding:4px 8px;font-size:12px" onclick="window.game.passLucky('${target}','${p}')">${p}</button>`);
+    html+='</div>';
+  }
+  if(k!=='lucky'){
+    html+='<br><button class="btn" onclick="window.game.closePenalty()">OK</button>';
+    html+='<div id="penaltyLoadingBar"></div>';
+  }
+  pc.innerHTML=html;$('penaltyPop').style.display='flex';
+  this._penType=k;this._penTarget=target;
+  this._t=setTimeout(()=>{if($('penaltyPop').style.display==='flex')this.closePenalty();},8000);
+ }
+ closePenalty(){
+  $('penaltyPop').style.display='none';clearTimeout(this._t);
+  if(this._penType==='bummer'||this._penType==='bonus')this.givePenalty(this._penTarget);
+  if(this._penType==='bonus')this.notice('Use "Change rule" buttons to modify a rule.');
+ }
+
+ addPlayer(){const n=prompt('Player name?');if(!n)return;
+  if(this.players.includes(n))return this.notice('Name exists');
+  this.players.push(n);this.pen[n]=0;this.update();}
+ removePlayer(){
+  if(this.players.length<=2)return this.notice('Need at least 2');
+  const idx=parseInt(prompt(this.players.map((p,i)=>`${i+1}. ${p}`).join('\n')),10)-1;
+  if(idx<0||idx>=this.players.length)return;
+  const p=this.players[idx];this.players.splice(idx,1);delete this.pen[p];
+  Object.keys(this.masterOwners).forEach(k=>{
+    if(this.masterOwners[k].master===p)this.masterOwners[k].master='';
+    if(this.masterOwners[k].target===p)this.masterOwners[k].target='';
+  });
+  this.update();
+ }
+
+ changeRule(s){
+   const currentOther = this.activeRules[1 - (s-1)];
+   const options = this.rules.filter(r => r !== currentOther);
+   let html = `<div class="noticeBox"><h3>Pick a new Moose Rule</h3>
+     <select id="ruleSelect">${options.map(r => 
+       `<option value="${r}"${r === this.activeRules[s-1] ? ' selected' : ''}>${r}</option>`
+     ).join('')}</select>
+     <br><br><button class="btn" id="pickRuleBtn">OK</button></div>`;
+   $('noticeTxt').innerHTML = html;
+   $('notice').style.display = 'flex';
+   $('pickRuleBtn').onclick = () => {
+     const sel = $('ruleSelect').value;
+     this.activeRules[s-1] = sel;
+     this.closeNotice();
+     this.update();
+   };
+ }
+
+ toggleMode(){this.mode=this.mode==='fewest'?'elimination':'fewest';
+  this.players.forEach(p=>this.checkElim(p));this.update();}
+
+ setMasterOwner(card, player, role='master') {
+   if(!this.masterOwners[card]) this.masterOwners[card] = {master:'',target:''};
+   if(role === 'master') this.masterOwners[card].master = player;
+   if(role === 'target') this.masterOwners[card].target = player;
+   this.update();
+ }
+
+ update(){
+  $('rule1').textContent=this.activeRules[0];
+  $('rule2').textContent=this.activeRules[1];
+  const cb=$('cardBox');cb.className='';if(this.curCard)cb.classList.add(this.curCard.t);
+  $('cardType').textContent=this.curCard?this.curCard.t.toUpperCase():'READY';
+  $('cardTitle').textContent=this.curCard?this.curCard.n:'Moose Master';
+  
+  const masterCardsWithTarget = ['ECHO MASTER','COPY CAT MASTER','QUESTION MASTER','RHYME MASTER','SIMON MASTER'];
+  if(this.curCard && this.curCard.t === 'master' && masterCardsWithTarget.includes(this.curCard.n)) {
+    const masterOwner = this.masterOwners[this.curCard.n] ? this.masterOwners[this.curCard.n].master : '';
+    const masterTarget = this.masterOwners[this.curCard.n] ? this.masterOwners[this.curCard.n].target : '';
+    
+    let leftSelect = `<select id="masterOwnerSelect" style="margin-right:8px;font-size:15px;">
+      <option value="">Select player</option>
+      ${this.players.map(p => `<option value="${p}"${masterOwner===p?' selected':''}>${p}</option>`).join('')}
+    </select>`;
+    let rightSelect = `<select id="masterTargetSelect" style="margin-left:8px;font-size:15px;">
+      <option value="">Select player</option>
+      ${this.players.map(p => `<option value="${p}"${masterTarget===p?' selected':''}>${p}</option>`).join('')}
+    </select>`;
+    
+    let cardText = this.curCard.c;
+    if(this.curCard.n === 'COPY CAT MASTER') {
+      cardText = 'pick an action & a player; they must copy.';
+    } else if(this.curCard.n === 'ECHO MASTER') {
+      cardText = 'say a word & pick player; they repeat.';
+    }
+    
+    let formula = `${leftSelect}${cardText} → ${rightSelect}`;
+    $('cardContent').innerHTML = formula;
+    
+    $('masterOwnerSelect').onchange = (e) => {
+      this.setMasterOwner(this.curCard.n, e.target.value, 'master');
+    };
+    $('masterTargetSelect').onchange = (e) => {
+      this.setMasterOwner(this.curCard.n, e.target.value, 'target');
+    };
+  } else {
+    $('cardContent').textContent=this.curCard?this.curCard.c:'Press "Draw card" to begin!';
+  }
+  
+  $('cardsLeft').textContent=this.left+' cards left';$('used').textContent=this.used;
+  $('lastCard').textContent=this.curCard?this.curCard.n:'None';
+  $('deckCard').classList.toggle('deck-empty',this.left===0);$('drawBtn').disabled=this.left===0;
+  $('modeBtn').textContent='Mode: '+(this.mode==='fewest'?'Fewest':'Elim');
+  $('modeLabel').textContent=`Mode: ${this.mode==='fewest'?'Fewest penalties':'Elimination (7 = out)'}`;
+  $('undoBtn').disabled=!this.hist.length;
+
+  $('playersBox').innerHTML=this.players.map(p=>{
+   const out=this.mode==='elimination'&&this.pen[p]>=7;
+   return `<div class="playerCard ${out?'eliminated':''}">
+     <div><b>${p}</b></div>
+     <div class="penCount">${this.pen[p]}</div>
+     <div class="penBtns">
+      <button class="btn" onclick="window.game.addPenaltyTo('${p}')">+Penalty</button>
+      <button class="btn" onclick="if(window.game.pen['${p}']>0){window.game.pen['${p}']--;window.game.update()}">-1</button>
+     </div></div>`;
+  }).join('');
+
+  const mt=$('masterTags');mt.innerHTML='';
+  this.drawnMasters.forEach(m=>{
+    const tag=document.createElement('span');tag.className='masterTag';
+    let text = m;
+    if(masterCardsWithTarget.includes(m)) {
+      const owner = this.masterOwners[m] ? this.masterOwners[m].master : '';
+      const target = this.masterOwners[m] ? this.masterOwners[m].target : '';
+      text = `[${m}: ${owner||'?'}]`;
+      if(target) text += ` → ${target}`;
+    } else {
+      const owner = typeof this.masterOwners[m] === 'string' ? this.masterOwners[m] : 
+                   (this.masterOwners[m] ? this.masterOwners[m].master : '');
+      text += `: ${owner||'Unassigned'}`;
+    }
+    tag.textContent = text;
+    tag.onclick=e=>toggleDropdown(tag,m);
+    mt.appendChild(tag);
+  });
+ }
+
+ notice(m){$('noticeTxt').textContent=m;$('notice').style.display='flex'}
+ closeNotice(){$('notice').style.display='none'}
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  window.game = new Game();
+});
+
+document.addEventListener('keydown', function(e) {
+  if(e.key===' '||e.key==='Enter'){if($('lobby') && !$('lobby').classList.contains('hide')){return}; e.preventDefault();window.game?.drawCard();}
+  if(e.ctrlKey&&e.key==='z')window.game?.undo();
+  if(e.key==='Escape'){if($('notice'))$('notice').style.display='none';if($('penaltyPop'))$('penaltyPop').style.display='none';}
+});
+</script>
+</body>
+</html>
